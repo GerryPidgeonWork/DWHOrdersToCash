@@ -1,0 +1,12 @@
+# Ignore local install files
+/binary_files/
+
+# Ignore Python cache and envs
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Ignore system junk
+.DS_Store
+Thumbs.db
