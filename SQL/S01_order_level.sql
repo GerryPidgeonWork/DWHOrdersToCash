@@ -53,8 +53,8 @@ WITH reporting_period AS (
 
     WHERE
         o.country_code = 'GB'
-        AND earliest_order_date >= reporting_start_date_day
-        AND latest_order_date <= reporting_end_date_day
+        AND created_at_day >= reporting_start_date_day
+        AND created_at_day <= reporting_end_date_day
 )
 
 -- ===============================

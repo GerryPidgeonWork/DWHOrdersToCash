@@ -25,8 +25,8 @@ from processes.P00_set_packages import *
 # 👇 Edit these two lines before each run if you want to change the reporting period
 # ----------------------------------------------------------------------------------------------------
 
-REPORTING_START_DATE = "2025-09-01"
-REPORTING_END_DATE   = "2025-09-30"
+REPORTING_START_DATE = "2024-12-01"
+REPORTING_END_DATE   = "2024-12-31"
 
 # ----------------------------------------------------------------------------------------------------
 # get_reporting_period()
