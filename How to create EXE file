@@ -1,4 +1,4 @@
 The following commands will produce the executable files:
 
 # Scripts used for Importing Files
-pyinstaller --onefile --distpath binary_files/import_detailed_xero/dist --workpath binary_files/import_detailed_xero/build --specpath binary_files/import_detailed_xero main/M01a_import_raw_xero_data.py
+pyinstaller --onefile --distpath binary_files/dwh_gui/dist --workpath binary_files/dwh_gui/build --specpath binary_files/dwh_gui main/M00_run_gui.py
