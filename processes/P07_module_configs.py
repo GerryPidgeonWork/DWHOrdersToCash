@@ -46,8 +46,8 @@ from processes.P00_set_packages import *
 #       REPORTING_END_DATE   = "2025-10-31"
 # ----------------------------------------------------------------------------------------------------
 
-REPORTING_START_DATE = "2025-11-01"
-REPORTING_END_DATE   = "2025-11-30"
+REPORTING_START_DATE = "2024-12-01"
+REPORTING_END_DATE   = "2024-12-31"
 
 # ----------------------------------------------------------------------------------------------------
 # get_reporting_period()
