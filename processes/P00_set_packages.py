@@ -31,7 +31,7 @@ from pathlib import Path                                        # Cross-platform
 from functools import lru_cache, partial                        # Memoization + preconfigured function wrappers
 from typing import Iterable, Callable, Optional, List, Dict     # Type hints for clean function signatures
 from dataclasses import dataclass                               # Lightweight class creation (auto __init__, __repr__, etc.)
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 # The following import is optional:
 # Only needed if you plan to define your own context managers with the @contextmanager decorator.

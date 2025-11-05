@@ -1,4 +1,5 @@
 The following commands will produce the executable files:
 
 # Scripts used for Importing Files
-pyinstaller --onefile --distpath binary_files/dwh_gui/dist --workpath binary_files/dwh_gui/build --specpath binary_files/dwh_gui main/M00_run_gui.py
+pyinstaller --onefile --add-data "C:\Users\GerryPidgeon\CodingRepositoryWindows\Python\GoPuff\DWHOrdersToCash\sql;sql" --distpath binary_files/dwh_orders_to_cash/dist --workpath binary_files/dwh_orders_to_cash/build --specpath binary_files/dwh_orders_to_cash main/M00_run_gui.py
+

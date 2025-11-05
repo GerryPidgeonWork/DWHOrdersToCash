@@ -10,6 +10,10 @@
 #     exports provider-specific CSVs to their respective folders.
 # ----------------------------------------------------------------------------------------------------
 # This script forms the foundation for the "Orders-to-Cash DWH extraction" layer of the pipeline.
+# ----------------------------------------------------------------------------------------------------
+# Update (2025-11-05):
+#   Added PyInstaller-safe path resolution for bundled SQL files, using `get_sql_path()` helper.
+#   This ensures the script can locate SQL files when compiled into a .exe using PyInstaller.
 # ====================================================================================================
 
 import sys
@@ -36,6 +40,35 @@ from processes.P04_static_lists import FINAL_DF_ORDER
 from processes.P07_module_configs import get_reporting_period
 from processes.P08_snowflake_connector import connect_to_snowflake, set_snowflake_context
 
+
+# ----------------------------------------------------------------------------------------------------
+# HELPER FUNCTION: get_sql_path()
+# ----------------------------------------------------------------------------------------------------
+def get_sql_path(filename: str) -> Path:
+    """
+    Returns the absolute path to an SQL file, compatible with both Python and PyInstaller builds.
+
+    Explanation:
+    • When running as a normal Python script, the SQL files are accessed from ./sql/
+    • When compiled with PyInstaller, all files are extracted into a temporary folder
+      referenced by `sys._MEIPASS`, so this function adjusts automatically.
+
+    Example usage:
+        sql_path = get_sql_path("S01_order_level.sql")
+    """
+    # Detect if the script is running from a PyInstaller bundle (_MEIPASS)
+    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+
+    # Construct the full path to the SQL file
+    sql_path = Path(base_path) / "sql" / filename
+
+    # Validation: Raise error if not found (helps detect missing bundling issues)
+    if not sql_path.exists():
+        raise FileNotFoundError(f"❌ SQL file not found: {sql_path}")
+
+    return sql_path
+
+
 # ----------------------------------------------------------------------------------------------------
 # run_order_level_query()
 # ----------------------------------------------------------------------------------------------------
@@ -55,13 +88,24 @@ def run_order_level_query(conn):
     Returns:
         pandas.DataFrame: Normalized DataFrame containing order-level data for the reporting period.
     """
+    # ------------------------------------------------------------------------------------------------
+    # STEP 1 - Get the reporting period and locate SQL file
+    # ------------------------------------------------------------------------------------------------
     start_date, end_date = get_reporting_period()
+
+    # Use the PyInstaller-safe SQL path resolver
+    sql_path = get_sql_path("S01_order_level.sql")
+
+    # Load SQL and inject date placeholders
     sql_query = (
-        Path("sql/S01_order_level.sql").read_text()
+        sql_path.read_text(encoding="utf-8")
         .replace("{{start_date}}", start_date)
         .replace("{{end_date}}", end_date)
     )
 
+    # ------------------------------------------------------------------------------------------------
+    # STEP 2 - Execute SQL query
+    # ------------------------------------------------------------------------------------------------
     print(f"⏳ Executing order-level query for {start_date} → {end_date} ...", end="", flush=True)
     t0 = time.time()
 
@@ -95,11 +139,16 @@ def run_item_level_query(conn, df_orders):
     Returns:
         pandas.DataFrame: Normalized DataFrame with per-item metrics for each gp_order_id.
     """
-    # Validate input
+    # ------------------------------------------------------------------------------------------------
+    # STEP 1 - Validate input
+    # ------------------------------------------------------------------------------------------------
     gp_order_ids = df_orders["gp_order_id"].dropna().unique().tolist()
     if not gp_order_ids:
         raise ValueError("❌ No valid gp_order_id values found.")
 
+    # ------------------------------------------------------------------------------------------------
+    # STEP 2 - Upload order IDs to a temporary Snowflake table
+    # ------------------------------------------------------------------------------------------------
     print(f"⏳ Uploading {len(gp_order_ids):,} order IDs to Snowflake ...", end="", flush=True)
     cur = conn.cursor()
     cur.execute("CREATE OR REPLACE TEMP TABLE temp_order_ids (gp_order_id STRING);")
@@ -107,21 +156,29 @@ def run_item_level_query(conn, df_orders):
     # Upload order IDs in chunks to avoid memory limits
     chunk_size = 25000
     start_time = time.time()
+
     for i in range(0, len(gp_order_ids), chunk_size):
         chunk = [(oid,) for oid in gp_order_ids[i:i + chunk_size]]
         cur.executemany("INSERT INTO temp_order_ids (gp_order_id) VALUES (%s);", chunk)
         done = min(i + chunk_size, len(gp_order_ids))
         pct = (done / len(gp_order_ids)) * 100
         print(f"\r   ⏳ Inserted {done:,}/{len(gp_order_ids):,} IDs ({pct:,.1f}%)", end="", flush=True)
+
     elapsed = time.time() - start_time
     print(f"\r✅ Uploaded {len(gp_order_ids):,} order IDs via chunked insert in {elapsed:,.1f}s. Running item-level query ...", end="", flush=True)
 
     cur.close()
 
-    # Load item-level SQL and link it to the temporary ID list
-    sql_query = Path("sql/S02_item_level.sql").read_text()
+    # ------------------------------------------------------------------------------------------------
+    # STEP 3 - Load item-level SQL and substitute order_id list
+    # ------------------------------------------------------------------------------------------------
+    sql_path = get_sql_path("S02_item_level.sql")
+    sql_query = sql_path.read_text(encoding="utf-8")
     sql_query = sql_query.replace("{{order_id_list}}", "SELECT gp_order_id FROM temp_order_ids")
 
+    # ------------------------------------------------------------------------------------------------
+    # STEP 4 - Execute SQL
+    # ------------------------------------------------------------------------------------------------
     t0 = time.time()
     df_items = read_sql_clean(conn, sql_query)
 
@@ -142,15 +199,6 @@ def transform_item_data(df_orders, df_items):
     3. Merges the pivoted item data into the main df_orders DataFrame using gp_order_id.
     4. Clears duplicated item metrics for rows with multiple Braintree transactions (index >= 2).
     5. Sorts and aligns the final DataFrame column order to FINAL_DF_ORDER.
-
-    Args:
-        df_orders (pandas.DataFrame):
-            The main order-level dataset.
-        df_items (pandas.DataFrame):
-            The VAT-band-level item data.
-
-    Returns:
-        pandas.DataFrame: Fully combined dataset with both order and item-level information.
     """
     # Normalize VAT band codes to simpler labels
     df_items["vat_band"] = df_items["vat_band"].replace({
