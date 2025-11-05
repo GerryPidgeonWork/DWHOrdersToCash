@@ -1,35 +1,82 @@
 # ====================================================================================================
 # P04_static_lists.py
+# ----------------------------------------------------------------------------------------------------
+# Purpose:
+#   Stores global static lists and constants used throughout the Orders-to-Cash workflow.
+#   These lists act as configuration-like reference structures, ensuring consistent ordering
+#   of columns, standardized labels, or fixed mappings across multiple scripts.
+# ----------------------------------------------------------------------------------------------------
+# Update Policy:
+#   • Keep naming conventions consistent with the normalized DataFrame schema (lowercase, underscores).
+#   • Add or remove fields only when schema changes are confirmed in both DWH and downstream processes.
+#   • Any modification should be followed by testing in all dependent modules.
+# ----------------------------------------------------------------------------------------------------
+# Example Usage:
+#   from processes.P04_static_lists import FINAL_DF_ORDER
+#   df = df[FINAL_DF_ORDER]      # Ensures consistent column order before CSV export
 # ====================================================================================================
 
-# ====================================================================================================
-# Import Libraries that are required to adjust sys path
-# ====================================================================================================
-import sys                      # Provides access to system-specific parameters and functions
-from pathlib import Path        # Offers an object-oriented interface for filesystem paths
+# ----------------------------------------------------------------------------------------------------
+# Import Libraries required to adjust sys path
+# ----------------------------------------------------------------------------------------------------
+import sys                      # Provides access to system-level parameters and functions
+from pathlib import Path        # Provides object-oriented filesystem path handling
 
-# Adjust sys.path so we can import modules from the parent folder
+# Add parent directory to system path to allow imports from `processes/`
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.dont_write_bytecode = True  # Prevents _pycache_ creation
+sys.dont_write_bytecode = True  # Prevents creation of __pycache__ directories
 
-# Import Project Libraries
+# Import shared project packages (declared centrally in P00_set_packages.py)
 from processes.P00_set_packages import *
 
-# ====================================================================================================
-# Import shared functions and file paths from other folders
-# ====================================================================================================
+# ----------------------------------------------------------------------------------------------------
+# FINAL_DF_ORDER
+# ----------------------------------------------------------------------------------------------------
+# Defines the canonical column order for the final combined DataFrame
+# produced by M01_run_order_level.py (after joining order- and item-level data).
+#
+# This ensures:
+#   • Consistent CSV exports across providers (Braintree, Uber, Deliveroo, etc.)
+#   • Logical column grouping: identifiers → timestamps → financials → item metrics.
+#   • Simplified downstream processing and validation.
+#
+# Note:
+#   - All names are lowercase, following normalize_columns() output.
+#   - The list length and order must align with the SELECT statements in the SQL templates.
+# ----------------------------------------------------------------------------------------------------
 
+FINAL_DF_ORDER = [
+    # ---- Identifiers ----
+    'gp_order_id', 'gp_order_id_obfuscated', 'mp_order_id',
+    'payment_system', 'braintree_tx_index', 'braintree_tx_id',
+    'location_name', 'order_vendor', 'vendor_group',
 
-# ====================================================================================================
-# Static Lists
-# ====================================================================================================
+    # ---- Status and timestamps ----
+    'order_completed', 'created_at_timestamp', 'delivered_at_timestamp',
+    'created_at_day', 'created_at_week', 'created_at_month',
+    'delivered_at_day', 'delivered_at_week', 'delivered_at_month',
+    'ops_date_day', 'ops_date_week', 'ops_date_month',
 
-FINAL_DF_ORDER = ['GP_ORDER_ID', 'GP_ORDER_ID_OBFUSCATED', 'MP_ORDER_ID', 'PAYMENT_SYSTEM', 'BRAINTREE_TX_INDEX', 'BRAINTREE_TX_ID', 'LOCATION_NAME', 'ORDER_VENDOR', 
-                  'VENDOR_GROUP', 'ORDER_COMPLETED', 'CREATED_AT_TIMESTAMP', 'DELIVERED_AT_TIMESTAMP', 'CREATED_AT_DAY', 'CREATED_AT_WEEK', 'CREATED_AT_MONTH', 'DELIVERED_AT_DAY', 
-                   'DELIVERED_AT_WEEK', 'DELIVERED_AT_MONTH', 'OPS_DATE_DAY', 'OPS_DATE_WEEK', 'OPS_DATE_MONTH', 'POST_PROMO_SALES_INC_VAT', 'DELIVERY_FEE_INC_VAT', 
-                   'PRIORITY_FEE_INC_VAT', 'SMALL_ORDER_FEE_INC_VAT', 'MP_BAG_FEE_INC_VAT', 'TOTAL_PAYMENT_INC_VAT', 'TIPS_AMOUNT', 'TOTAL_PAYMENT_WITH_TIPS_INC_VAT', 
-                   'POST_PROMO_SALES_EXC_VAT', 'DELIVERY_FEE_EXC_VAT', 'PRIORITY_FEE_EXC_VAT', 'SMALL_ORDER_FEE_EXC_VAT', 'MP_BAG_FEE_EXC_VAT', 'TOTAL_REVENUE_EXC_VAT', 
-                   'COST_OF_GOODS_INC_VAT', 'COST_OF_GOODS_EXC_VAT', 'ALT_POST_PROMO_SALES_INC_VAT', 'ALT_DELIVERY_FEE_EXC_VAT', 'ALT_PRIORITY_FEE_EXC_VAT', 
-                   'ALT_SMALL_ORDER_FEE_EXC_VAT', 'ALT_TOTAL_PAYMENT_WITH_TIPS_INC_VAT', 'TOTAL_PRODUCTS', 'ITEM_QUANTITY_COUNT_0', 'ITEM_QUANTITY_COUNT_5', 
-                   'ITEM_QUANTITY_COUNT_20', 'TOTAL_PRICE_EXC_VAT_0', 'TOTAL_PRICE_EXC_VAT_5', 'TOTAL_PRICE_EXC_VAT_20', 'TOTAL_PRICE_INC_VAT_0', 'TOTAL_PRICE_INC_VAT_5', 
-                   'TOTAL_PRICE_INC_VAT_20']
+    # ---- Financials: VAT and Revenue ----
+    'blended_vat_rate', 'post_promo_sales_inc_vat',
+    'delivery_fee_inc_vat', 'priority_fee_inc_vat',
+    'small_order_fee_inc_vat', 'mp_bag_fee_inc_vat',
+    'total_payment_inc_vat', 'tips_amount',
+    'total_payment_with_tips_inc_vat',
+
+    'post_promo_sales_exc_vat', 'delivery_fee_exc_vat',
+    'priority_fee_exc_vat', 'small_order_fee_exc_vat',
+    'mp_bag_fee_exc_vat', 'total_revenue_exc_vat',
+    'cost_of_goods_inc_vat', 'cost_of_goods_exc_vat',
+
+    # ---- Alternate metrics (for validation/reconciliation) ----
+    'alt_post_promo_sales_inc_vat', 'alt_delivery_fee_exc_vat',
+    'alt_priority_fee_exc_vat', 'alt_small_order_fee_exc_vat',
+    'alt_total_payment_with_tips_inc_vat',
+
+    # ---- Item-level breakdown ----
+    'total_products',
+    'item_quantity_count_0', 'item_quantity_count_5', 'item_quantity_count_20',
+    'total_price_exc_vat_0', 'total_price_exc_vat_5', 'total_price_exc_vat_20',
+    'total_price_inc_vat_0', 'total_price_inc_vat_5', 'total_price_inc_vat_20'
+]
